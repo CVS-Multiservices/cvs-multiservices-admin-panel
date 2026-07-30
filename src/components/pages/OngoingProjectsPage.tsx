@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit, Trash2, Save, Plus, X } from 'lucide-react';
+import { Edit, Trash2, Save, Plus, X, CheckCircle2, Clock } from 'lucide-react';
 import { GenericListPage } from '../generic/GenericListPage';
 import { FormInput, FormTextarea, FormField } from '../common/FormHelpers';
 import { ImageUploader } from '../common/ImageUploader';
@@ -64,6 +64,116 @@ function getIconFromCategory(category: string): string {
         if (lower.includes(key) || key.includes(lower)) return CATEGORY_ICON_MAP[key];
     }
     return CATEGORY_ICON_MAP['default'];
+}
+
+// ==================== STATUS VALUES ====================
+const STATUS_OPTIONS = [
+    { value: 'ongoing', label: 'Ongoing' },
+    { value: 'completed', label: 'Completed' },
+] as const;
+
+type ProjectStatus = 'ongoing' | 'completed';
+
+// ==================== STATUS BADGE ====================
+function StatusBadge({ status }: { status: string }) {
+    const isCompleted = status === 'completed';
+    return (
+        <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full border ${
+                isCompleted
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}
+        >
+            {isCompleted ? (
+                <CheckCircle2 className="w-3 h-3" />
+            ) : (
+                <Clock className="w-3 h-3" />
+            )}
+            {isCompleted ? 'Completed' : 'Ongoing'}
+        </span>
+    );
+}
+
+// ==================== STATUS CHECKBOX INPUT ====================
+function StatusCheckbox({
+    value,
+    onChange,
+}: {
+    value: ProjectStatus;
+    onChange: (status: ProjectStatus) => void;
+}) {
+    return (
+        <FormField label="Project Status">
+            <div className="flex items-center gap-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                {STATUS_OPTIONS.map((option) => {
+                    const isSelected = value === option.value;
+                    const isCompleted = option.value === 'completed';
+
+                    return (
+                        <label
+                            key={option.value}
+                            className={`flex items-center gap-3 cursor-pointer group select-none`}
+                        >
+                            {/* Custom checkbox */}
+                            <div className="relative flex-shrink-0">
+                                <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => onChange(option.value)}
+                                    className="sr-only"
+                                />
+                                <div
+                                    onClick={() => onChange(option.value)}
+                                    className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-all cursor-pointer ${
+                                        isSelected
+                                            ? isCompleted
+                                                ? 'bg-emerald-500 border-emerald-500'
+                                                : 'bg-amber-500 border-amber-500'
+                                            : 'bg-white border-slate-300 group-hover:border-slate-400'
+                                    }`}
+                                >
+                                    {isSelected && (
+                                        <svg
+                                            className="w-3 h-3 text-white"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth={3}
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                d="M5 13l4 4L19 7"
+                                            />
+                                        </svg>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Label with icon */}
+                            <span
+                                className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
+                                    isSelected
+                                        ? isCompleted
+                                            ? 'text-emerald-700'
+                                            : 'text-amber-700'
+                                        : 'text-slate-500 group-hover:text-slate-700'
+                                }`}
+                            >
+                                {isCompleted ? (
+                                    <CheckCircle2 className="w-4 h-4" />
+                                ) : (
+                                    <Clock className="w-4 h-4" />
+                                )}
+                                {option.label}
+                            </span>
+                        </label>
+                    );
+                })}
+            </div>
+        </FormField>
+    );
 }
 
 // ==================== HIGHLIGHTS INPUT ====================
@@ -166,6 +276,7 @@ export function OngoingProjectsPage({
         description: '',
         teamSize: '' as number | string,
         highlights: [] as string[],
+        status: 'ongoing' as ProjectStatus,   // ← NEW
     });
 
     const [originalImg, setOriginalImg] = useState('');
@@ -181,6 +292,8 @@ export function OngoingProjectsPage({
                 description: editingItem.description || '',
                 teamSize: editingItem.teamSize || '',
                 highlights: Array.isArray(editingItem.highlights) ? editingItem.highlights : [],
+                // Fallback to 'ongoing' if not set in existing data
+                status: (editingItem.status === 'completed' ? 'completed' : 'ongoing') as ProjectStatus,
             });
             setOriginalImg(editingItem.image || '');
         } else if (modalOpen && !editingItem) {
@@ -193,6 +306,7 @@ export function OngoingProjectsPage({
                 description: '',
                 teamSize: '',
                 highlights: [],
+                status: 'ongoing',   // ← default for new projects
             });
             setOriginalImg('');
         }
@@ -205,6 +319,7 @@ export function OngoingProjectsPage({
             icon,
             teamSize: Number(form.teamSize),
             highlights: form.highlights,
+            status: form.status,   // ← stored as String in DB
         });
     };
 
@@ -234,12 +349,15 @@ export function OngoingProjectsPage({
             handleEdit={handleEdit}
             handleDelete={handleDelete}
             renderItem={(project) => (
-                <div key={project.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition">
+                <div
+                    key={project.id}
+                    className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition"
+                >
                     <div className="flex flex-col md:flex-row">
 
                         {/* Image — 3:2 ratio */}
                         <div
-                            className="w-full md:w-56 flex-shrink-0 bg-slate-100 overflow-hidden"
+                            className="w-full md:w-56 flex-shrink-0 bg-slate-100 overflow-hidden relative"
                             style={{ aspectRatio: '3/2' }}
                         >
                             {project.image ? (
@@ -247,13 +365,20 @@ export function OngoingProjectsPage({
                                     src={project.image}
                                     alt={project.title}
                                     className="w-full h-full object-cover"
-                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://picsum.photos/600/400'; }}
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).src = 'https://picsum.photos/600/400';
+                                    }}
                                 />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center">
                                     <span className="text-slate-300 text-xs">No image</span>
                                 </div>
                             )}
+
+                            {/* Status ribbon on image bottom-left */}
+                            <div className="absolute bottom-2 left-2">
+                                <StatusBadge status={project.status || 'ongoing'} />
+                            </div>
                         </div>
 
                         {/* Info */}
@@ -268,40 +393,57 @@ export function OngoingProjectsPage({
                                                 {project.category}
                                             </span>
                                         )}
-                                        <span className="text-slate-400 text-xs">📍 {project.location}</span>
+                                        <span className="text-slate-400 text-xs">
+                                            📍 {project.location}
+                                        </span>
                                     </div>
 
-                                    <h4 className="text-lg font-bold text-slate-800 mb-1">{project.title}</h4>
+                                    <h4 className="text-lg font-bold text-slate-800 mb-1">
+                                        {project.title}
+                                    </h4>
 
                                     <p className="text-sm text-slate-500 mb-1">
-                                        Client: <span className="font-medium text-slate-700">{project.client}</span>
+                                        Client:{' '}
+                                        <span className="font-medium text-slate-700">
+                                            {project.client}
+                                        </span>
                                         {project.teamSize && (
-                                            <> • Team: <span className="font-medium text-slate-700">{project.teamSize} people</span></>
+                                            <>
+                                                {' '}• Team:{' '}
+                                                <span className="font-medium text-slate-700">
+                                                    {project.teamSize} people
+                                                </span>
+                                            </>
                                         )}
                                     </p>
 
                                     {project.description && (
-                                        <p className="text-sm text-slate-500 line-clamp-1 mb-1">{project.description}</p>
+                                        <p className="text-sm text-slate-500 line-clamp-1 mb-1">
+                                            {project.description}
+                                        </p>
                                     )}
 
                                     {/* Highlights */}
-                                    {Array.isArray(project.highlights) && project.highlights.length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5 mt-2">
-                                            {project.highlights.slice(0, 4).map((h: string, i: number) => (
-                                                <span
-                                                    key={i}
-                                                    className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs rounded-full border border-emerald-200"
-                                                >
-                                                    ✓ {h}
-                                                </span>
-                                            ))}
-                                            {project.highlights.length > 4 && (
-                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-xs rounded-full">
-                                                    +{project.highlights.length - 4} more
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
+                                    {Array.isArray(project.highlights) &&
+                                        project.highlights.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                {project.highlights
+                                                    .slice(0, 4)
+                                                    .map((h: string, i: number) => (
+                                                        <span
+                                                            key={i}
+                                                            className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs rounded-full border border-emerald-200"
+                                                        >
+                                                            ✓ {h}
+                                                        </span>
+                                                    ))}
+                                                {project.highlights.length > 4 && (
+                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-xs rounded-full">
+                                                        +{project.highlights.length - 4} more
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                 </div>
 
                                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -313,7 +455,13 @@ export function OngoingProjectsPage({
                                         <Edit className="w-4 h-4" />
                                     </button>
                                     <button
-                                        onClick={() => setDeleteConfirm({ open: true, id: project.id, collection: 'ongoing-projects' })}
+                                        onClick={() =>
+                                            setDeleteConfirm({
+                                                open: true,
+                                                id: project.id,
+                                                collection: 'ongoing-projects',
+                                            })
+                                        }
                                         className="p-2 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl transition"
                                         title="Delete"
                                     >
@@ -334,7 +482,7 @@ export function OngoingProjectsPage({
                 >
                     <div className="space-y-4">
 
-                        {/* ── Project Title — full width ── */}
+                        {/* ── Project Title ── */}
                         <FormInput
                             label="Project Title"
                             value={form.title}
@@ -343,7 +491,7 @@ export function OngoingProjectsPage({
                             placeholder="e.g. ONGC Mehsana ETP Operations"
                         />
 
-                        {/* ── Category below Title — full width with auto-icon ── */}
+                        {/* ── Category ── */}
                         <div>
                             <FormInput
                                 label="Category"
@@ -370,15 +518,13 @@ export function OngoingProjectsPage({
                         />
 
                         <div className="grid grid-cols-2 gap-4">
-
                             <FormInput
-                            label="Location"
-                            value={form.location}
-                            onChange={(v) => setForm({ ...form, location: v })}
-                            required
-                            placeholder="e.g. Mehsana, Gujarat"
+                                label="Location"
+                                value={form.location}
+                                onChange={(v) => setForm({ ...form, location: v })}
+                                required
+                                placeholder="e.g. Mehsana, Gujarat"
                             />
-
                             <FormInput
                                 label="Team Size"
                                 value={form.teamSize}
@@ -389,25 +535,29 @@ export function OngoingProjectsPage({
                             />
                         </div>
 
-                      
+                        {/* ── Status Checkbox ── */}
+                        <StatusCheckbox
+                            value={form.status}
+                            onChange={(status) => setForm({ ...form, status })}
+                        />
 
-                        {/* ── Description — full width ── */}
+                        {/* ── Description ── */}
                         <FormTextarea
                             label="Description"
                             value={form.description}
                             onChange={(v) => setForm({ ...form, description: v })}
                             rows={2}
                             required
-                            placeholder="e.g. Operating and maintaining mobile effluent treatment plants for produced water treatment at multiple well sites..."
+                            placeholder="e.g. Operating and maintaining mobile effluent treatment plants..."
                         />
 
-                        {/* ── Highlights — full width ── */}
+                        {/* ── Highlights ── */}
                         <HighlightsInput
                             value={form.highlights}
                             onChange={(highlights) => setForm({ ...form, highlights })}
                         />
 
-                        {/* ── Image Uploader — full width ── */}
+                        {/* ── Image Uploader ── */}
                         <ImageUploader
                             value={form.image}
                             onChange={(url) => setForm((prev) => ({ ...prev, image: url }))}
