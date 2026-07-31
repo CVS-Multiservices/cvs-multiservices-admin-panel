@@ -109,6 +109,7 @@ export interface TeamMember {
   role: string;
   img: string;
   desc: string;
+  level: number;
 }
 
 // ==================== TIMELINE ====================
@@ -139,6 +140,7 @@ export interface OngoingProject {
   highlights: string[];
   teamSize: number;
   status: string;
+  featured: boolean;
 }
 
 // ==================== UPCOMING PROJECTS ====================

@@ -21,6 +21,15 @@ interface TeamPageProps {
   showToast: (message: string, type: 'success' | 'error' | 'info') => void;
 }
 
+// ==================== LEVEL BADGE ====================
+function LevelBadge({ level }: { level: number }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full border bg-slate-100 text-slate-600 border-slate-200">
+      L{level}
+    </span>
+  );
+}
+
 export function TeamPage({
   team, modalOpen, modalType, editingItem, deleteConfirm,
   openAddModal, openEditModal, setModalOpen, setEditingItem,
@@ -31,6 +40,7 @@ export function TeamPage({
     role: '',
     img: '',
     desc: '',
+    level: '' as number | string,  // ← NEW
   });
 
   const [originalImg, setOriginalImg] = useState('');
@@ -40,25 +50,33 @@ export function TeamPage({
       setForm({
         name: editingItem.name || '',
         role: editingItem.role || '',
-        img: editingItem.img || '',
+        img:  editingItem.img  || '',
         desc: editingItem.desc || '',
+        level: editingItem.level !== undefined && editingItem.level !== null
+          ? Number(editingItem.level)
+          : '',
       });
       setOriginalImg(editingItem.img || '');
     } else if (modalOpen && !editingItem) {
-      setForm({ name: '', role: '', img: '', desc: '' });
+      setForm({ name: '', role: '', img: '', desc: '', level: '' });
       setOriginalImg('');
     }
   }, [modalOpen, editingItem]);
 
   const handleFormSubmit = (onSave: (data: any) => void) => {
-    onSave(form);
+    onSave({
+      ...form,
+      level: Number(form.level),  // ← stored as number in DB
+    });
   };
 
   const isFormValid =
     form.name.trim() &&
     form.role.trim() &&
     form.desc.trim() &&
-    form.img;
+    form.img &&
+    form.level !== '' &&
+    Number(form.level) > 0;
 
   return (
     <GenericListPage
@@ -100,12 +118,24 @@ export function TeamPage({
                   </div>
                 )}
               </div>
+
               <div className="min-w-0">
-                <h4 className="text-lg font-bold text-slate-800">{member.name}</h4>
+                {/* Name + level badge on same row */}
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <h4 className="text-lg font-bold text-slate-800 leading-tight">
+                    {member.name}
+                  </h4>
+                  {member.level !== undefined &&
+                    member.level !== null &&
+                    member.level !== '' && (
+                      <LevelBadge level={Number(member.level)} />
+                    )}
+                </div>
                 <p className="text-sm text-blue-600 font-medium">{member.role}</p>
                 <p className="text-sm text-slate-500 mt-0.5 line-clamp-1">{member.desc}</p>
               </div>
             </div>
+
             <div className="flex items-center gap-1 flex-shrink-0">
               <button
                 onClick={() => openEditModal(member)}
@@ -139,9 +169,6 @@ export function TeamPage({
           }}
         >
           <div className="space-y-4">
-            {/* Square profile image — NOT circular */}
-          
-
             <FormInput
               label="Full Name"
               value={form.name}
@@ -158,6 +185,16 @@ export function TeamPage({
               required
             />
 
+            {/* ── Level ── */}
+            <FormInput
+              label="Level"
+              value={form.level}
+              onChange={(v) => setForm({ ...form, level: v === '' ? '' : Number(v) })}
+              type="number"
+              required
+              placeholder="e.g. 1 (lower = more senior)"
+            />
+
             <FormTextarea
               label="Description / Bio"
               value={form.desc}
@@ -167,7 +204,7 @@ export function TeamPage({
               placeholder="Brief description about this team member, their experience, expertise..."
             />
 
-              <ImageUploader
+            <ImageUploader
               value={form.img}
               onChange={(url) => setForm((prev) => ({ ...prev, img: url }))}
               folder="team"

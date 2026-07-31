@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit, Trash2, Save, Plus, X, CheckCircle2, Clock } from 'lucide-react';
+import { Edit, Trash2, Save, Plus, X, CheckCircle2, Clock, Star } from 'lucide-react';
 import { GenericListPage } from '../generic/GenericListPage';
 import { FormInput, FormTextarea, FormField } from '../common/FormHelpers';
 import { ImageUploader } from '../common/ImageUploader';
@@ -95,6 +95,16 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
+// ==================== FEATURED BADGE ====================
+function FeaturedBadge() {
+    return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full border bg-yellow-50 text-yellow-700 border-yellow-300">
+            <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+            Featured
+        </span>
+    );
+}
+
 // ==================== STATUS CHECKBOX INPUT ====================
 function StatusCheckbox({
     value,
@@ -113,7 +123,7 @@ function StatusCheckbox({
                     return (
                         <label
                             key={option.value}
-                            className={`flex items-center gap-3 cursor-pointer group select-none`}
+                            className="flex items-center gap-3 cursor-pointer group select-none"
                         >
                             {/* Custom checkbox */}
                             <div className="relative flex-shrink-0">
@@ -171,6 +181,76 @@ function StatusCheckbox({
                         </label>
                     );
                 })}
+            </div>
+        </FormField>
+    );
+}
+
+// ==================== FEATURED TOGGLE ====================
+function FeaturedToggle({
+    value,
+    onChange,
+}: {
+    value: boolean;
+    onChange: (featured: boolean) => void;
+}) {
+    return (
+        <FormField label="Featured Project">
+            <div
+                className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all select-none ${
+                    value
+                        ? 'bg-yellow-50 border-yellow-300'
+                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                }`}
+                onClick={() => onChange(!value)}
+            >
+                {/* Left — description */}
+                <div className="flex items-center gap-3">
+                    <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                            value ? 'bg-yellow-100' : 'bg-slate-200'
+                        }`}
+                    >
+                        <Star
+                            className={`w-5 h-5 transition-colors ${
+                                value
+                                    ? 'fill-yellow-500 text-yellow-500'
+                                    : 'text-slate-400'
+                            }`}
+                        />
+                    </div>
+                    <div>
+                        <p
+                            className={`text-sm font-semibold transition-colors ${
+                                value ? 'text-yellow-800' : 'text-slate-700'
+                            }`}
+                        >
+                            {value ? 'Featured on website' : 'Mark as featured'}
+                        </p>
+                        <p
+                            className={`text-xs transition-colors ${
+                                value ? 'text-yellow-600' : 'text-slate-400'
+                            }`}
+                        >
+                            {value
+                                ? 'This project will be highlighted in the featured section'
+                                : 'Enable to showcase this project prominently'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Right — pill toggle switch */}
+                <div
+                    className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+                        value ? 'bg-yellow-400' : 'bg-slate-300'
+                    }`}
+                >
+                    <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                            value ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                    />
+                </div>
             </div>
         </FormField>
     );
@@ -276,7 +356,8 @@ export function OngoingProjectsPage({
         description: '',
         teamSize: '' as number | string,
         highlights: [] as string[],
-        status: 'ongoing' as ProjectStatus,   // ← NEW
+        status: 'ongoing' as ProjectStatus,
+        featured: false,                        // ← NEW boolean field
     });
 
     const [originalImg, setOriginalImg] = useState('');
@@ -292,8 +373,9 @@ export function OngoingProjectsPage({
                 description: editingItem.description || '',
                 teamSize: editingItem.teamSize || '',
                 highlights: Array.isArray(editingItem.highlights) ? editingItem.highlights : [],
-                // Fallback to 'ongoing' if not set in existing data
                 status: (editingItem.status === 'completed' ? 'completed' : 'ongoing') as ProjectStatus,
+                // Safely coerce stored value → boolean (handles true / "true" / 1)
+                featured: Boolean(editingItem.featured) ?? false,  // ← NEW
             });
             setOriginalImg(editingItem.image || '');
         } else if (modalOpen && !editingItem) {
@@ -306,7 +388,8 @@ export function OngoingProjectsPage({
                 description: '',
                 teamSize: '',
                 highlights: [],
-                status: 'ongoing',   // ← default for new projects
+                status: 'ongoing',
+                featured: false,   // ← default false for new projects
             });
             setOriginalImg('');
         }
@@ -319,7 +402,8 @@ export function OngoingProjectsPage({
             icon,
             teamSize: Number(form.teamSize),
             highlights: form.highlights,
-            status: form.status,   // ← stored as String in DB
+            status: form.status,
+            featured: form.featured,   // ← boolean stored in DB
         });
     };
 
@@ -351,7 +435,11 @@ export function OngoingProjectsPage({
             renderItem={(project) => (
                 <div
                     key={project.id}
-                    className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition"
+                    className={`bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition ${
+                        project.featured
+                            ? 'border-yellow-300 ring-1 ring-yellow-200'
+                            : 'border-slate-200'
+                    }`}
                 >
                     <div className="flex flex-col md:flex-row">
 
@@ -375,10 +463,19 @@ export function OngoingProjectsPage({
                                 </div>
                             )}
 
-                            {/* Status ribbon on image bottom-left */}
+                            {/* Status ribbon — bottom-left of image */}
                             <div className="absolute bottom-2 left-2">
                                 <StatusBadge status={project.status || 'ongoing'} />
                             </div>
+
+                            {/* Featured star — top-right of image */}
+                            {project.featured && (
+                                <div className="absolute top-2 right-2">
+                                    <span className="flex items-center justify-center w-6 h-6 bg-yellow-400 rounded-full shadow">
+                                        <Star className="w-3.5 h-3.5 fill-white text-white" />
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Info */}
@@ -386,13 +483,15 @@ export function OngoingProjectsPage({
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1 min-w-0">
 
-                                    {/* Badges */}
+                                    {/* Badges row */}
                                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                                         {project.category && (
                                             <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                                                 {project.category}
                                             </span>
                                         )}
+                                        {/* Featured badge inline with other badges */}
+                                        {project.featured && <FeaturedBadge />}
                                         <span className="text-slate-400 text-xs">
                                             📍 {project.location}
                                         </span>
@@ -535,11 +634,17 @@ export function OngoingProjectsPage({
                             />
                         </div>
 
-                        {/* ── Status Checkbox ── */}
-                        <StatusCheckbox
-                            value={form.status}
-                            onChange={(status) => setForm({ ...form, status })}
-                        />
+                        {/* ── Status + Featured side by side on md+ ── */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <StatusCheckbox
+                                value={form.status}
+                                onChange={(status) => setForm({ ...form, status })}
+                            />
+                            <FeaturedToggle
+                                value={form.featured}
+                                onChange={(featured) => setForm({ ...form, featured })}
+                            />
+                        </div>
 
                         {/* ── Description ── */}
                         <FormTextarea
